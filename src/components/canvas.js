@@ -4,7 +4,7 @@ function Canvas(props) {
   return (
     <Stage width={window.innerWidth} height={window.innerHeight}>
       <Layer>
-        <Circle x={200} y={100} radius={50} fill="green" />
+        <Circle x={200} y={100} radius={50} fill="red" />
       </Layer>
     </Stage>
   );
