@@ -1,9 +1,11 @@
-import React, { useRef, useEffect,useState } from "react";
-import { Stage, Layer, Star, Text, Transformer } from "react-konva";
+import React, { useRef, useEffect, useState } from "react";
+import { Stage, Layer, Star, Text, Transformer, Image as KonvaImage } from "react-konva";
 
-function generateShapes() {
-  return [...Array(10)].map((_, i) => ({
-    id: i.toString(),
+// Function to generate initial stars
+function generateStars(count = 10) {
+  return [...Array(count)].map((_, i) => ({
+    id: `star-${i}`,
+    type: 'star',
     x: Math.random() * window.innerWidth,
     y: Math.random() * window.innerHeight,
     rotation: Math.random() * 180,
@@ -12,12 +14,10 @@ function generateShapes() {
     fill: "yellow",
     stroke: "black",
     strokeWidth: 2,
-    isDragging: false,
   }));
 }
 
-const INITIAL_STATE = generateShapes();
-
+// Component for rendering and transforming a Star
 const StarShape = ({ star, isSelected, onSelect, onChange }) => {
   const shapeRef = useRef();
   const trRef = useRef();
@@ -44,13 +44,30 @@ const StarShape = ({ star, isSelected, onSelect, onChange }) => {
             y: e.target.y(),
           });
         }}
+        onTransformEnd={(e) => {
+          const node = shapeRef.current;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            ...star,
+            x: node.x(),
+            y: node.y(),
+            rotation: node.rotation(),
+            innerRadius: Math.max(5, star.innerRadius * scaleX),
+            outerRadius: Math.max(5, star.outerRadius * scaleY),
+          });
+        }}
       />
       {isSelected && (
         <Transformer
           ref={trRef}
-          flipEnabled={false}
+          rotateEnabled={true}
+          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
           boundBoxFunc={(oldBox, newBox) => {
-            if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
+            if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) {
               return oldBox;
             }
             return newBox;
@@ -61,76 +78,244 @@ const StarShape = ({ star, isSelected, onSelect, onChange }) => {
   );
 };
 
-const Canvas = () => {
-  const [stars, setStars] = React.useState(INITIAL_STATE);
-  const [selectedId, setSelectedId] = React.useState(null);
-  const [stage,setStage] = useState({
-    scale: 1,
-    x: 0,
-    y: 0
-  });
-  const handleWheel = (e) => {
-    e.evt.preventDefault();
+// Component for rendering and transforming an Image
+const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
+  const shapeRef = useRef();
+  const trRef = useRef();
+  const [image, setImage] = useState(null);
 
-    const scaleBy = 1.02;
-    const stage = e.target.getStage();
-    const oldScale = stage.scaleX();
-    const mousePointTo = {
-      x: stage.getPointerPosition().x / oldScale - stage.x() / oldScale,
-      y: stage.getPointerPosition().y / oldScale - stage.y() / oldScale
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = imageObj.src;
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      setImage(img);
     };
+  }, [imageObj.src]);
 
-    const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+  useEffect(() => {
+    if (isSelected && trRef.current && shapeRef.current) {
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer().batchDraw();
+    }
+  }, [isSelected]);
 
-    setStage({
-      scale: newScale,
-      x: (stage.getPointerPosition().x / newScale - mousePointTo.x) * newScale,
-      y: (stage.getPointerPosition().y / newScale - mousePointTo.y) * newScale
-    });
-  };  
+  return (
+    <>
+      <KonvaImage
+        ref={shapeRef}
+        image={image}
+        {...imageObj}
+        onClick={onSelect}
+        onTap={onSelect}
+        draggable
+        onDragEnd={(e) => {
+          onChange({
+            ...imageObj,
+            x: e.target.x(),
+            y: e.target.y(),
+          });
+        }}
+        onTransformEnd={(e) => {
+          const node = shapeRef.current;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
 
-  const handleSelect = (id) => {
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            ...imageObj,
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(10, imageObj.width * scaleX),
+            height: Math.max(10, imageObj.height * scaleY),
+          });
+        }}
+      />
+      {isSelected && (
+        <Transformer
+          ref={trRef}
+          rotateEnabled={true}
+          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+          boundBoxFunc={(oldBox, newBox) => {
+            if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) {
+              return oldBox;
+            }
+            return newBox;
+          }}
+        />
+      )}
+    </>
+  );
+};
+
+// Main Canvas Component
+const Canvas = () => {
+  const stageRef = useRef(null);
+  const containerRef = useRef(null);
+  const [stars, setStars] = useState(generateStars());
+  const [images, setImages] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [selectedType, setSelectedType] = useState(null);
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const resizeHandler = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+    window.addEventListener("resize", resizeHandler);
+    return () => {
+      window.removeEventListener("resize", resizeHandler);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.focus();
+    }
+  }, []);
+
+  const handleSelect = (id, type) => {
     setSelectedId(id);
+    setSelectedType(type);
   };
 
-  const handleChange = (newAttrs) => {
+  const handleChangeStar = (newAttrs) => {
     const updatedStars = stars.map((star) =>
       star.id === newAttrs.id ? newAttrs : star
     );
     setStars(updatedStars);
   };
 
+  const handleChangeImage = (newAttrs) => {
+    const updatedImages = images.map((img) =>
+      img.id === newAttrs.id ? newAttrs : img
+    );
+    setImages(updatedImages);
+  };
+
   const handleDeselect = (e) => {
     if (e.target === e.target.getStage()) {
       setSelectedId(null);
+      setSelectedType(null);
     }
   };
 
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const img = new window.Image();
+        img.src = evt.target.result;
+        img.onload = () => {
+          const newImage = {
+            id: `image-${images.length}`,
+            type: "image",
+            x: 100,
+            y: 100,
+            width: img.width > 200 ? 200 : img.width,
+            height: img.height > 200 ? 200 : img.height,
+            src: evt.target.result,
+          };
+          setImages([...images, newImage]);
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleWheel = (e) => {
+    e.evt.preventDefault();
+    const scaleBy = 1.02;
+    const stage = stageRef.current;
+    const oldScale = stage.scaleX();
+    const pointer = stage.getPointerPosition();
+    const mousePointTo = {
+      x: (pointer.x - stage.x()) / oldScale,
+      y: (pointer.y - stage.y()) / oldScale,
+    };
+
+    let newScale = oldScale;
+    let newWidth = dimensions.width;
+    let newHeight = dimensions.height;
+
+    if (e.evt.deltaY < 0) {
+      newScale = oldScale * scaleBy;
+    } else {
+      newScale = oldScale / scaleBy;
+      newWidth = dimensions.width * 1.1;
+      newHeight = dimensions.height * 1.1;
+      setDimensions({
+        width: newWidth,
+        height: newHeight,
+      });
+    }
+
+    setScale(newScale);
+    setPosition({
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    });
+
+    stage.scale({ x: newScale, y: newScale });
+    stage.position({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale });
+    stage.batchDraw();
+  };
+
   return (
-    <Stage
-      width={window.innerWidth}
-      height={window.innerHeight}
-      onWheel={handleWheel}
-      onMouseDown={handleDeselect}
-      onTouchStart={handleDeselect}
-      scaleX={stage.scale}
-      scaleY={stage.scale}
-      x={stage.x}
-      y={stage.y}
+    <div
+      ref={containerRef}
+      onDrop={handleDrop}
+      onDragOver={(e) => e.preventDefault()}
+      tabIndex={0}
+      className="w-full h-screen"
+      style={{ outline: "none" }}
     >
-      <Layer>
-        <Text text="Try to drag a star" />
-        {stars.map((star) => (
-          <StarShape
-            key={star.id}
-            star={star}
-            isSelected={star.id === selectedId}
-            onSelect={() => handleSelect(star.id)}
-            onChange={handleChange}
-          />
-        ))}
-      </Layer>
-    </Stage>
+      <Stage
+        ref={stageRef}
+        width={dimensions.width}
+        height={dimensions.height}
+        onWheel={handleWheel}
+        onMouseDown={handleDeselect}
+        onTouchStart={handleDeselect}
+        scaleX={scale}
+        scaleY={scale}
+        x={position.x}
+        y={position.y}
+      >
+        <Layer>
+          <Text text="Try to drag a star or drop an image" />
+          {stars.map((star) => (
+            <StarShape
+              key={star.id}
+              star={star}
+              isSelected={star.id === selectedId && selectedType === "star"}
+              onSelect={() => handleSelect(star.id, "star")}
+              onChange={handleChangeStar}
+            />
+          ))}
+          {images.map((imageObj) => (
+            <ImageShape
+              key={imageObj.id}
+              imageObj={imageObj}
+              isSelected={imageObj.id === selectedId && selectedType === "image"}
+              onSelect={() => handleSelect(imageObj.id, "image")}
+              onChange={handleChangeImage}
+            />
+          ))}
+        </Layer>
+      </Stage>
+    </div>
   );
 };
 
