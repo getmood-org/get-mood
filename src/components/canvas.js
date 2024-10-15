@@ -1,5 +1,5 @@
-import { Stage, Layer, Star, Text, Transformer, Image as KonvaImage } from 'react-konva';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useEffect,useState } from "react";
+import { Stage, Layer, Star, Text, Transformer } from "react-konva";
 
 function generateShapes() {
   return [...Array(10)].map((_, i) => ({
@@ -9,8 +9,8 @@ function generateShapes() {
     rotation: Math.random() * 180,
     innerRadius: 20,
     outerRadius: 40,
-    fill: 'yellow',
-    stroke: 'black',
+    fill: "yellow",
+    stroke: "black",
     strokeWidth: 2,
     isDragging: false,
   }));
@@ -62,28 +62,32 @@ const StarShape = ({ star, isSelected, onSelect, onChange }) => {
 };
 
 const Canvas = () => {
-  const stageRef = useRef(null);
-  const [dimensions, setDimensions] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight,
+  const [stars, setStars] = React.useState(INITIAL_STATE);
+  const [selectedId, setSelectedId] = React.useState(null);
+  const [stage,setStage] = useState({
+    scale: 1,
+    x: 0,
+    y: 0
   });
-  const [stars, setStars] = useState(INITIAL_STATE);
-  const [selectedId, setSelectedId] = useState(null);
-  const [image, setImage] = useState(null);
+  const handleWheel = (e) => {
+    e.evt.preventDefault();
 
-  useEffect(() => {
-    const resizeHandler = () => {
-      setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
+    const scaleBy = 1.02;
+    const stage = e.target.getStage();
+    const oldScale = stage.scaleX();
+    const mousePointTo = {
+      x: stage.getPointerPosition().x / oldScale - stage.x() / oldScale,
+      y: stage.getPointerPosition().y / oldScale - stage.y() / oldScale
     };
 
-    window.addEventListener('resize', resizeHandler);
-    return () => {
-      window.removeEventListener('resize', resizeHandler);
-    };
-  }, []);
+    const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+
+    setStage({
+      scale: newScale,
+      x: (stage.getPointerPosition().x / newScale - mousePointTo.x) * newScale,
+      y: (stage.getPointerPosition().y / newScale - mousePointTo.y) * newScale
+    });
+  };  
 
   const handleSelect = (id) => {
     setSelectedId(id);
@@ -102,60 +106,31 @@ const Canvas = () => {
     }
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      const img = new window.Image();
-      img.src = e.target?.result;
-      img.onload = () => {
-        setImage(img);
-      };
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  const handleDrag = (e) => {
-    e.preventDefault();
-  };
-
   return (
-    <div onDrop={handleDrop} onDragOver={handleDrag} className="w-full h-screen">
-      <Stage
-        ref={stageRef}
-        width={dimensions.width}
-        height={dimensions.height}
-        onMouseDown={handleDeselect}
-        onTouchStart={handleDeselect}
-        style={{ backgroundColor: 'white' }}
-      >
-        <Layer>
-          <Text text="Try to drag a star or drop an image" />
-          {stars.map((star) => (
-            <StarShape
-              key={star.id}
-              star={star}
-              isSelected={star.id === selectedId}
-              onSelect={() => handleSelect(star.id)}
-              onChange={handleChange}
-            />
-          ))}
-          {image && (
-            <KonvaImage
-              image={image}
-              x={100}
-              y={100}
-              width={200}
-              height={200}
-              draggable
-            />
-          )}
-        </Layer>
-      </Stage>
-    </div>
+    <Stage
+      width={window.innerWidth}
+      height={window.innerHeight}
+      onWheel={handleWheel}
+      onMouseDown={handleDeselect}
+      onTouchStart={handleDeselect}
+      scaleX={stage.scale}
+      scaleY={stage.scale}
+      x={stage.x}
+      y={stage.y}
+    >
+      <Layer>
+        <Text text="Try to drag a star" />
+        {stars.map((star) => (
+          <StarShape
+            key={star.id}
+            star={star}
+            isSelected={star.id === selectedId}
+            onSelect={() => handleSelect(star.id)}
+            onChange={handleChange}
+          />
+        ))}
+      </Layer>
+    </Stage>
   );
 };
 
