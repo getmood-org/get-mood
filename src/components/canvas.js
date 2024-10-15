@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from "react";
-import { Stage, Layer, Star, Text, Transformer } from "react-konva";
+import { Stage, Layer, Star, Text, Transformer, Image as KonvaImage } from 'react-konva';
+import React, { useRef, useState, useEffect } from 'react';
 
 function generateShapes() {
   return [...Array(10)].map((_, i) => ({
@@ -9,8 +9,8 @@ function generateShapes() {
     rotation: Math.random() * 180,
     innerRadius: 20,
     outerRadius: 40,
-    fill: "yellow",
-    stroke: "black",
+    fill: 'yellow',
+    stroke: 'black',
     strokeWidth: 2,
     isDragging: false,
   }));
@@ -62,8 +62,28 @@ const StarShape = ({ star, isSelected, onSelect, onChange }) => {
 };
 
 const Canvas = () => {
-  const [stars, setStars] = React.useState(INITIAL_STATE);
-  const [selectedId, setSelectedId] = React.useState(null);
+  const stageRef = useRef(null);
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+  const [stars, setStars] = useState(INITIAL_STATE);
+  const [selectedId, setSelectedId] = useState(null);
+  const [image, setImage] = useState(null);
+
+  useEffect(() => {
+    const resizeHandler = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+
+    window.addEventListener('resize', resizeHandler);
+    return () => {
+      window.removeEventListener('resize', resizeHandler);
+    };
+  }, []);
 
   const handleSelect = (id) => {
     setSelectedId(id);
@@ -82,26 +102,60 @@ const Canvas = () => {
     }
   };
 
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const img = new window.Image();
+      img.src = e.target?.result;
+      img.onload = () => {
+        setImage(img);
+      };
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+  };
+
   return (
-    <Stage
-      width={window.innerWidth}
-      height={window.innerHeight}
-      onMouseDown={handleDeselect}
-      onTouchStart={handleDeselect}
-    >
-      <Layer>
-        <Text text="Try to drag a star" />
-        {stars.map((star) => (
-          <StarShape
-            key={star.id}
-            star={star}
-            isSelected={star.id === selectedId}
-            onSelect={() => handleSelect(star.id)}
-            onChange={handleChange}
-          />
-        ))}
-      </Layer>
-    </Stage>
+    <div onDrop={handleDrop} onDragOver={handleDrag} className="w-full h-screen">
+      <Stage
+        ref={stageRef}
+        width={dimensions.width}
+        height={dimensions.height}
+        onMouseDown={handleDeselect}
+        onTouchStart={handleDeselect}
+        style={{ backgroundColor: 'white' }}
+      >
+        <Layer>
+          <Text text="Try to drag a star or drop an image" />
+          {stars.map((star) => (
+            <StarShape
+              key={star.id}
+              star={star}
+              isSelected={star.id === selectedId}
+              onSelect={() => handleSelect(star.id)}
+              onChange={handleChange}
+            />
+          ))}
+          {image && (
+            <KonvaImage
+              image={image}
+              x={100}
+              y={100}
+              width={200}
+              height={200}
+              draggable
+            />
+          )}
+        </Layer>
+      </Stage>
+    </div>
   );
 };
 
