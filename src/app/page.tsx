@@ -1,7 +1,8 @@
 'use client';
 import dynamic from 'next/dynamic';
+import Canvas from '../components/canvas';
 
-const Canvas = dynamic(() => import('../components/canvas'), {
+const home = dynamic(() => import('../components/canvas'), {
   ssr: false,
 });
 
