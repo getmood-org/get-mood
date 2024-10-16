@@ -44,7 +44,7 @@ const StarShape = ({ star, isSelected, onSelect, onChange }) => {
             y: e.target.y(),
           });
         }}
-        onTransformEnd={(e) => {
+        onTransformEnd={() => {
           const node = shapeRef.current;
           const scaleX = node.scaleX();
           const scaleY = node.scaleY();
@@ -116,7 +116,7 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
             y: e.target.y(),
           });
         }}
-        onTransformEnd={(e) => {
+        onTransformEnd={() => {
           const node = shapeRef.current;
           const scaleX = node.scaleX();
           const scaleY = node.scaleY();
