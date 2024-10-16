@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { Stage, Layer, Star, Text, Transformer, Image as KonvaImage } from "react-konva";
 
 // Function to generate initial stars
-function generateStars(count = 10) {
+function generateStars(count = 2) {
   return [...Array(count)].map((_, i) => ({
     id: `star-${i}`,
     type: 'star',
@@ -246,21 +246,14 @@ const Canvas = () => {
     };
 
     let newScale = oldScale;
-    let newWidth = dimensions.width;
-    let newHeight = dimensions.height;
+    const minScale = 0.5;
+    const maxScale = 3;
 
     if (e.evt.deltaY < 0) {
-      newScale = oldScale * scaleBy;
+      newScale = Math.min(oldScale * scaleBy, maxScale);
     } else {
-      newScale = oldScale / scaleBy;
-      newWidth = dimensions.width * 1.1;
-      newHeight = dimensions.height * 1.1;
-      setDimensions({
-        width: newWidth,
-        height: newHeight,
-      });
+      newScale = Math.max(oldScale / scaleBy, minScale);
     }
-
     setScale(newScale);
     setPosition({
       x: pointer.x - mousePointTo.x * newScale,
