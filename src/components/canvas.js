@@ -1,13 +1,14 @@
+// src/Canvas.js
 import React, { useRef, useEffect, useState } from "react";
 import { Stage, Layer, Star, Text, Transformer, Image as KonvaImage } from "react-konva";
 
 // Function to generate initial stars
-function generateStars(count = 10) {
+function generateStars(count = 2) {
   return [...Array(count)].map((_, i) => ({
     id: `star-${i}`,
     type: 'star',
-    x: Math.random() * window.innerWidth,
-    y: Math.random() * window.innerHeight,
+    x: Math.random() * 800, // Adjusted to initial width
+    y: Math.random() * 600, // Adjusted to initial height
     rotation: Math.random() * 180,
     innerRadius: 20,
     outerRadius: 40,
@@ -164,6 +165,10 @@ const Canvas = () => {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
+  // Panning state
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastPanPos, setLastPanPos] = useState({ x: 0, y: 0 });
+
   useEffect(() => {
     const resizeHandler = () => {
       setDimensions({
@@ -203,7 +208,9 @@ const Canvas = () => {
   };
 
   const handleDeselect = (e) => {
-    if (e.target === e.target.getStage()) {
+    // Only deselect if clicked on the background
+    const clickedOnEmpty = e.target === e.target.getStage();
+    if (clickedOnEmpty) {
       setSelectedId(null);
       setSelectedType(null);
     }
@@ -221,8 +228,8 @@ const Canvas = () => {
           const newImage = {
             id: `image-${images.length}`,
             type: "image",
-            x: 100,
-            y: 100,
+            x: position.x + (dimensions.width / 2) / scale - (img.width > 200 ? 100 : img.width / 2),
+            y: position.y + (dimensions.height / 2) / scale - (img.height > 200 ? 100 : img.height / 2),
             width: img.width > 200 ? 200 : img.width,
             height: img.height > 200 ? 200 : img.height,
             src: evt.target.result,
@@ -234,42 +241,86 @@ const Canvas = () => {
     }
   };
 
+  // Handle Wheel for Zooming
   const handleWheel = (e) => {
     e.evt.preventDefault();
-    const scaleBy = 1.02;
     const stage = stageRef.current;
+    if (!stage) return;
+
     const oldScale = stage.scaleX();
     const pointer = stage.getPointerPosition();
+
+    const scaleBy = 1.02;
+    let newScale = oldScale;
+
+    if (e.evt.deltaY < 0) {
+      newScale = Math.min(oldScale * scaleBy, 3);
+    } else {
+      newScale = Math.max(oldScale / scaleBy, 0.3);
+    }
+
     const mousePointTo = {
       x: (pointer.x - stage.x()) / oldScale,
       y: (pointer.y - stage.y()) / oldScale,
     };
 
-    let newScale = oldScale;
-    let newWidth = dimensions.width;
-    let newHeight = dimensions.height;
+    stage.scale({ x: newScale, y: newScale });
 
-    if (e.evt.deltaY < 0) {
-      newScale = oldScale * scaleBy;
-    } else {
-      newScale = oldScale / scaleBy;
-      newWidth = dimensions.width * 1.1;
-      newHeight = dimensions.height * 1.1;
-      setDimensions({
-        width: newWidth,
-        height: newHeight,
-      });
-    }
-
-    setScale(newScale);
-    setPosition({
+    const newPos = {
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
-    });
-
-    stage.scale({ x: newScale, y: newScale });
-    stage.position({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale });
+    };
+    stage.position(newPos);
     stage.batchDraw();
+
+    setScale(newScale);
+    setPosition(newPos);
+  };
+
+  // Handle Mouse Down for Panning
+  const handleMouseDown = (e) => {
+    // Only start panning if clicked on the background
+    if (e.target === stageRef.current) {
+      setIsPanning(true);
+      const pos = e.evt.clientX
+        ? { x: e.evt.clientX, y: e.evt.clientY }
+        : { x: 0, y: 0 };
+      setLastPanPos(pos);
+    }
+  };
+
+  // Handle Mouse Move for Panning
+  const handleMouseMove = (e) => {
+    if (!isPanning) return;
+
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const pos = {
+      x: e.evt.clientX,
+      y: e.evt.clientY,
+    };
+
+    const dx = pos.x - lastPanPos.x;
+    const dy = pos.y - lastPanPos.y;
+
+    const newPos = {
+      x: stage.x() + dx,
+      y: stage.y() + dy,
+    };
+
+    stage.position(newPos);
+    stage.batchDraw();
+
+    setLastPanPos(pos);
+    setPosition(newPos);
+  };
+
+  // Handle Mouse Up to End Panning
+  const handleMouseUp = () => {
+    if (isPanning) {
+      setIsPanning(false);
+    }
   };
 
   return (
@@ -278,23 +329,44 @@ const Canvas = () => {
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
       tabIndex={0}
-      className="w-full h-screen"
-      style={{ outline: "none" }}
+      style={{
+        width: '100%',
+        height: '100vh',
+        outline: "none",
+        overflow: 'hidden',
+        cursor: isPanning ? 'grabbing' : 'default', // Updated cursor styling
+      }}
     >
       <Stage
         ref={stageRef}
         width={dimensions.width}
         height={dimensions.height}
         onWheel={handleWheel}
-        onMouseDown={handleDeselect}
-        onTouchStart={handleDeselect}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onTouchMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onTouchEnd={handleMouseUp}
         scaleX={scale}
         scaleY={scale}
         x={position.x}
         y={position.y}
+        onClick={handleDeselect}
+        onTap={handleDeselect}
+        draggable={false} // Disable default dragging
       >
         <Layer>
-          <Text text="Try to drag a star or drop an image" />
+          {/* Instruction Text */}
+          <Text
+            text="Try to drag a star, drop an image, or click and drag the background to pan."
+            fontSize={18}
+            x={10}
+            y={10}
+            fill="black"
+          />
+          {/* Render Stars */}
           {stars.map((star) => (
             <StarShape
               key={star.id}
@@ -304,6 +376,7 @@ const Canvas = () => {
               onChange={handleChangeStar}
             />
           ))}
+          {/* Render Images */}
           {images.map((imageObj) => (
             <ImageShape
               key={imageObj.id}
