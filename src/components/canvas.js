@@ -12,9 +12,12 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
   useEffect(() => {
     const img = new window.Image();
     img.src = imageObj.src;
-    img.crossOrigin = "Anonymous";
+    img.crossOrigin = "Anonymous"; // If necessary
     img.onload = () => {
       setImage(img);
+    };
+    img.onerror = (err) => {
+      console.error(`Failed to load image: ${imageObj.id}`, err);
     };
   }, [imageObj.src]);
 
@@ -61,9 +64,17 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
         <Transformer
           ref={trRef}
           rotateEnabled={true}
-          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+          enabledAnchors={[
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right",
+          ]}
           boundBoxFunc={(oldBox, newBox) => {
-            if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) {
+            if (
+              Math.abs(newBox.width) < 10 ||
+              Math.abs(newBox.height) < 10
+            ) {
               return oldBox;
             }
             return newBox;
@@ -142,10 +153,16 @@ const Canvas = () => {
         img.src = evt.target.result;
         img.onload = () => {
           const newImage = {
-            id: `image-${images.length}`,
+            id: `image-${Date.now()}`, // Use timestamp for unique ID
             type: "image",
-            x: position.x + (dimensions.width / 2) / scale - (img.width > 200 ? 100 : img.width / 2),
-            y: position.y + (dimensions.height / 2) / scale - (img.height > 200 ? 100 : img.height / 2),
+            x:
+              position.x +
+              (dimensions.width / 2) / scale -
+              (img.width > 200 ? 100 : img.width / 2),
+            y:
+              position.y +
+              (dimensions.height / 2) / scale -
+              (img.height > 200 ? 100 : img.height / 2),
             width: img.width > 200 ? 200 : img.width,
             height: img.height > 200 ? 200 : img.height,
             src: evt.target.result,
@@ -180,14 +197,10 @@ const Canvas = () => {
       y: (pointer.y - stage.y()) / oldScale,
     };
 
-    stage.scale({ x: newScale, y: newScale });
-
     const newPos = {
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
     };
-    stage.position(newPos);
-    stage.batchDraw();
 
     setScale(newScale);
     setPosition(newPos);
@@ -225,9 +238,6 @@ const Canvas = () => {
       y: stage.y() + dy,
     };
 
-    stage.position(newPos);
-    stage.batchDraw();
-
     setLastPanPos(pos);
     setPosition(newPos);
   };
@@ -238,18 +248,70 @@ const Canvas = () => {
       setIsPanning(false);
     }
   };
+
   const handleExportAsImage = () => {
     const stage = stageRef.current;
     if (!stage) return;
     // Get the data URL of the stage
     const dataURL = stage.toDataURL({ pixelRatio: 3 }); // Increase pixelRatio for higher resolution
     // Create a link and trigger download
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = dataURL;
-    link.download = 'canvas.png';
+    link.download = "canvas.png";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportAsJSON = () => {
+    const canvasState = {
+      images,
+      scale,
+      position,
+    };
+
+    const json = JSON.stringify(canvasState);
+
+    // Create a Blob from the JSON
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    // Create a link and trigger download
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "canvas.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Clean up
+  };
+
+  const handleImportFromJSON = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === "application/json") {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const json = reader.result;
+        try {
+          const canvasState = JSON.parse(json);
+
+          // Validate the canvasState object
+          if (canvasState.images && canvasState.scale && canvasState.position) {
+            setImages(canvasState.images);
+            setScale(canvasState.scale);
+            setPosition(canvasState.position);
+          } else {
+            throw new Error("Invalid canvas state");
+          }
+        } catch (error) {
+          console.error("Error parsing JSON:", error);
+          alert("Failed to load the canvas. Error: " + error.message);
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      alert("Please upload a valid JSON file.");
+    }
   };
 
   return (
@@ -259,12 +321,30 @@ const Canvas = () => {
       onDragOver={(e) => e.preventDefault()}
       tabIndex={0}
       className={`w-full h-screen outline-none overflow-hidden ${
-        isPanning ? 'cursor-grabbing' : 'cursor-default'
+        isPanning ? "cursor-grabbing" : "cursor-default"
       }`}
     >
-      <Button variant={"outline"} onClick={handleExportAsImage}>
-      Export as Image
-      </Button>
+      {/* Export and Import Controls */}
+      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 10 }}>
+        <Button variant={"outline"} onClick={handleExportAsImage}>
+          Export as Image
+        </Button>
+        <Button
+          variant={"outline"}
+          onClick={handleExportAsJSON}
+          style={{ marginLeft: "10px" }}
+        >
+          Export as JSON
+        </Button>
+        <input
+          type="file"
+          accept="application/json"
+          onChange={handleImportFromJSON}
+          style={{ marginLeft: "10px" }}
+        />
+      </div>
+
+      {/* Konva Stage */}
       <Stage
         ref={stageRef}
         width={dimensions.width}
@@ -291,7 +371,9 @@ const Canvas = () => {
             <ImageShape
               key={imageObj.id}
               imageObj={imageObj}
-              isSelected={imageObj.id === selectedId && selectedType === "image"}
+              isSelected={
+                imageObj.id === selectedId && selectedType === "image"
+              }
               onSelect={() => handleSelect(imageObj.id, "image")}
               onChange={handleChangeImage}
             />
