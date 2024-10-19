@@ -1,83 +1,7 @@
 // src/Canvas.js
 import React, { useRef, useEffect, useState } from "react";
-import { Stage, Layer, Star, Text, Transformer, Image as KonvaImage } from "react-konva";
-
-// Function to generate initial stars
-function generateStars(count = 2) {
-  return [...Array(count)].map((_, i) => ({
-    id: `star-${i}`,
-    type: 'star',
-    x: Math.random() * 800, // Adjusted to initial width
-    y: Math.random() * 600, // Adjusted to initial height
-    rotation: Math.random() * 180,
-    innerRadius: 20,
-    outerRadius: 40,
-    fill: "yellow",
-    stroke: "black",
-    strokeWidth: 2,
-  }));
-}
-
-// Component for rendering and transforming a Star
-const StarShape = ({ star, isSelected, onSelect, onChange }) => {
-  const shapeRef = useRef();
-  const trRef = useRef();
-
-  useEffect(() => {
-    if (isSelected) {
-      trRef.current.nodes([shapeRef.current]);
-      trRef.current.getLayer().batchDraw();
-    }
-  }, [isSelected]);
-
-  return (
-    <>
-      <Star
-        ref={shapeRef}
-        {...star}
-        onClick={onSelect}
-        onTap={onSelect}
-        draggable
-        onDragEnd={(e) => {
-          onChange({
-            ...star,
-            x: e.target.x(),
-            y: e.target.y(),
-          });
-        }}
-        onTransformEnd={() => {
-          const node = shapeRef.current;
-          const scaleX = node.scaleX();
-          const scaleY = node.scaleY();
-
-          node.scaleX(1);
-          node.scaleY(1);
-          onChange({
-            ...star,
-            x: node.x(),
-            y: node.y(),
-            rotation: node.rotation(),
-            innerRadius: Math.max(5, star.innerRadius * scaleX),
-            outerRadius: Math.max(5, star.outerRadius * scaleY),
-          });
-        }}
-      />
-      {isSelected && (
-        <Transformer
-          ref={trRef}
-          rotateEnabled={true}
-          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
-          boundBoxFunc={(oldBox, newBox) => {
-            if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) {
-              return oldBox;
-            }
-            return newBox;
-          }}
-        />
-      )}
-    </>
-  );
-};
+import { Stage, Layer, Transformer, Image as KonvaImage } from "react-konva";
+import { Button } from "./ui/button";
 
 // Component for rendering and transforming an Image
 const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
@@ -154,7 +78,6 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
 const Canvas = () => {
   const stageRef = useRef(null);
   const containerRef = useRef(null);
-  const [stars, setStars] = useState(generateStars());
   const [images, setImages] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [selectedType, setSelectedType] = useState(null);
@@ -191,13 +114,6 @@ const Canvas = () => {
   const handleSelect = (id, type) => {
     setSelectedId(id);
     setSelectedType(type);
-  };
-
-  const handleChangeStar = (newAttrs) => {
-    const updatedStars = stars.map((star) =>
-      star.id === newAttrs.id ? newAttrs : star
-    );
-    setStars(updatedStars);
   };
 
   const handleChangeImage = (newAttrs) => {
@@ -322,6 +238,19 @@ const Canvas = () => {
       setIsPanning(false);
     }
   };
+  const handleExportAsImage = () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    // Get the data URL of the stage
+    const dataURL = stage.toDataURL({ pixelRatio: 3 }); // Increase pixelRatio for higher resolution
+    // Create a link and trigger download
+    const link = document.createElement('a');
+    link.href = dataURL;
+    link.download = 'canvas.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div
@@ -329,14 +258,13 @@ const Canvas = () => {
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
       tabIndex={0}
-      style={{
-        width: '100%',
-        height: '100vh',
-        outline: "none",
-        overflow: 'hidden',
-        cursor: isPanning ? 'grabbing' : 'default', // Updated cursor styling
-      }}
+      className={`w-full h-screen outline-none overflow-hidden ${
+        isPanning ? 'cursor-grabbing' : 'cursor-default'
+      }`}
     >
+      <Button variant={"outline"} onClick={handleExportAsImage}>
+      Export as Image
+      </Button>
       <Stage
         ref={stageRef}
         width={dimensions.width}
@@ -358,24 +286,6 @@ const Canvas = () => {
         draggable={false} // Disable default dragging
       >
         <Layer>
-          {/* Instruction Text */}
-          <Text
-            text="Try to drag a star, drop an image, or click and drag the background to pan."
-            fontSize={18}
-            x={10}
-            y={10}
-            fill="black"
-          />
-          {/* Render Stars */}
-          {stars.map((star) => (
-            <StarShape
-              key={star.id}
-              star={star}
-              isSelected={star.id === selectedId && selectedType === "star"}
-              onSelect={() => handleSelect(star.id, "star")}
-              onChange={handleChangeStar}
-            />
-          ))}
           {/* Render Images */}
           {images.map((imageObj) => (
             <ImageShape
