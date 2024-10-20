@@ -1,83 +1,7 @@
 // src/Canvas.js
 import React, { useRef, useEffect, useState } from "react";
-import { Stage, Layer, Star, Text, Transformer, Image as KonvaImage } from "react-konva";
-
-// Function to generate initial stars
-function generateStars(count = 2) {
-  return [...Array(count)].map((_, i) => ({
-    id: `star-${i}`,
-    type: 'star',
-    x: Math.random() * 800, // Adjusted to initial width
-    y: Math.random() * 600, // Adjusted to initial height
-    rotation: Math.random() * 180,
-    innerRadius: 20,
-    outerRadius: 40,
-    fill: "yellow",
-    stroke: "black",
-    strokeWidth: 2,
-  }));
-}
-
-// Component for rendering and transforming a Star
-const StarShape = ({ star, isSelected, onSelect, onChange }) => {
-  const shapeRef = useRef();
-  const trRef = useRef();
-
-  useEffect(() => {
-    if (isSelected) {
-      trRef.current.nodes([shapeRef.current]);
-      trRef.current.getLayer().batchDraw();
-    }
-  }, [isSelected]);
-
-  return (
-    <>
-      <Star
-        ref={shapeRef}
-        {...star}
-        onClick={onSelect}
-        onTap={onSelect}
-        draggable
-        onDragEnd={(e) => {
-          onChange({
-            ...star,
-            x: e.target.x(),
-            y: e.target.y(),
-          });
-        }}
-        onTransformEnd={() => {
-          const node = shapeRef.current;
-          const scaleX = node.scaleX();
-          const scaleY = node.scaleY();
-
-          node.scaleX(1);
-          node.scaleY(1);
-          onChange({
-            ...star,
-            x: node.x(),
-            y: node.y(),
-            rotation: node.rotation(),
-            innerRadius: Math.max(5, star.innerRadius * scaleX),
-            outerRadius: Math.max(5, star.outerRadius * scaleY),
-          });
-        }}
-      />
-      {isSelected && (
-        <Transformer
-          ref={trRef}
-          rotateEnabled={true}
-          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
-          boundBoxFunc={(oldBox, newBox) => {
-            if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) {
-              return oldBox;
-            }
-            return newBox;
-          }}
-        />
-      )}
-    </>
-  );
-};
+import { Stage, Layer, Transformer, Image as KonvaImage } from "react-konva";
+import { Button } from "./ui/button";
 
 // Component for rendering and transforming an Image
 const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
@@ -88,9 +12,12 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
   useEffect(() => {
     const img = new window.Image();
     img.src = imageObj.src;
-    img.crossOrigin = "Anonymous";
+    img.crossOrigin = "Anonymous"; // If necessary
     img.onload = () => {
       setImage(img);
+    };
+    img.onerror = (err) => {
+      console.error(`Failed to load image: ${imageObj.id}`, err);
     };
   }, [imageObj.src]);
 
@@ -137,9 +64,17 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
         <Transformer
           ref={trRef}
           rotateEnabled={true}
-          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+          enabledAnchors={[
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right",
+          ]}
           boundBoxFunc={(oldBox, newBox) => {
-            if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) {
+            if (
+              Math.abs(newBox.width) < 10 ||
+              Math.abs(newBox.height) < 10
+            ) {
               return oldBox;
             }
             return newBox;
@@ -154,7 +89,6 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
 const Canvas = () => {
   const stageRef = useRef(null);
   const containerRef = useRef(null);
-  const [stars, setStars] = useState(generateStars());
   const [images, setImages] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [selectedType, setSelectedType] = useState(null);
@@ -193,13 +127,6 @@ const Canvas = () => {
     setSelectedType(type);
   };
 
-  const handleChangeStar = (newAttrs) => {
-    const updatedStars = stars.map((star) =>
-      star.id === newAttrs.id ? newAttrs : star
-    );
-    setStars(updatedStars);
-  };
-
   const handleChangeImage = (newAttrs) => {
     const updatedImages = images.map((img) =>
       img.id === newAttrs.id ? newAttrs : img
@@ -226,10 +153,16 @@ const Canvas = () => {
         img.src = evt.target.result;
         img.onload = () => {
           const newImage = {
-            id: `image-${images.length}`,
+            id: `image-${Date.now()}`, // Use timestamp for unique ID
             type: "image",
-            x: position.x + (dimensions.width / 2) / scale - (img.width > 200 ? 100 : img.width / 2),
-            y: position.y + (dimensions.height / 2) / scale - (img.height > 200 ? 100 : img.height / 2),
+            x:
+              position.x +
+              (dimensions.width / 2) / scale -
+              (img.width > 200 ? 100 : img.width / 2),
+            y:
+              position.y +
+              (dimensions.height / 2) / scale -
+              (img.height > 200 ? 100 : img.height / 2),
             width: img.width > 200 ? 200 : img.width,
             height: img.height > 200 ? 200 : img.height,
             src: evt.target.result,
@@ -264,14 +197,10 @@ const Canvas = () => {
       y: (pointer.y - stage.y()) / oldScale,
     };
 
-    stage.scale({ x: newScale, y: newScale });
-
     const newPos = {
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
     };
-    stage.position(newPos);
-    stage.batchDraw();
 
     setScale(newScale);
     setPosition(newPos);
@@ -309,9 +238,6 @@ const Canvas = () => {
       y: stage.y() + dy,
     };
 
-    stage.position(newPos);
-    stage.batchDraw();
-
     setLastPanPos(pos);
     setPosition(newPos);
   };
@@ -323,20 +249,102 @@ const Canvas = () => {
     }
   };
 
+  const handleExportAsImage = () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    // Get the data URL of the stage
+    const dataURL = stage.toDataURL({ pixelRatio: 3 }); // Increase pixelRatio for higher resolution
+    // Create a link and trigger download
+    const link = document.createElement("a");
+    link.href = dataURL;
+    link.download = "canvas.png";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportAsJSON = () => {
+    const canvasState = {
+      images,
+      scale,
+      position,
+    };
+
+    const json = JSON.stringify(canvasState);
+
+    // Create a Blob from the JSON
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    // Create a link and trigger download
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "canvas.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url); // Clean up
+  };
+
+  const handleImportFromJSON = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === "application/json") {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const json = reader.result;
+        try {
+          const canvasState = JSON.parse(json);
+
+          // Validate the canvasState object
+          if (canvasState.images && canvasState.scale && canvasState.position) {
+            setImages(canvasState.images);
+            setScale(canvasState.scale);
+            setPosition(canvasState.position);
+          } else {
+            throw new Error("Invalid canvas state");
+          }
+        } catch (error) {
+          console.error("Error parsing JSON:", error);
+          alert("Failed to load the canvas. Error: " + error.message);
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      alert("Please upload a valid JSON file.");
+    }
+  };
+
   return (
     <div
       ref={containerRef}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
       tabIndex={0}
-      style={{
-        width: '100%',
-        height: '100vh',
-        outline: "none",
-        overflow: 'hidden',
-        cursor: isPanning ? 'grabbing' : 'default', // Updated cursor styling
-      }}
+      className={`w-full h-screen outline-none overflow-hidden ${
+        isPanning ? "cursor-grabbing" : "cursor-default"
+      }`}
     >
+      {/* Export and Import Controls */}
+      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 10 }}>
+        <Button variant={"outline"} onClick={handleExportAsImage}>
+          Export as Image
+        </Button>
+        <Button
+          variant={"outline"}
+          onClick={handleExportAsJSON}
+          style={{ marginLeft: "10px" }}
+        >
+          Export as JSON
+        </Button>
+        <input
+          type="file"
+          accept="application/json"
+          onChange={handleImportFromJSON}
+          style={{ marginLeft: "10px" }}
+        />
+      </div>
+
+      {/* Konva Stage */}
       <Stage
         ref={stageRef}
         width={dimensions.width}
@@ -358,30 +366,14 @@ const Canvas = () => {
         draggable={false} // Disable default dragging
       >
         <Layer>
-          {/* Instruction Text */}
-          <Text
-            text="Try to drag a star, drop an image, or click and drag the background to pan."
-            fontSize={18}
-            x={10}
-            y={10}
-            fill="black"
-          />
-          {/* Render Stars */}
-          {stars.map((star) => (
-            <StarShape
-              key={star.id}
-              star={star}
-              isSelected={star.id === selectedId && selectedType === "star"}
-              onSelect={() => handleSelect(star.id, "star")}
-              onChange={handleChangeStar}
-            />
-          ))}
           {/* Render Images */}
           {images.map((imageObj) => (
             <ImageShape
               key={imageObj.id}
               imageObj={imageObj}
-              isSelected={imageObj.id === selectedId && selectedType === "image"}
+              isSelected={
+                imageObj.id === selectedId && selectedType === "image"
+              }
               onSelect={() => handleSelect(imageObj.id, "image")}
               onChange={handleChangeImage}
             />
