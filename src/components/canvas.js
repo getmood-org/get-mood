@@ -1,7 +1,7 @@
 // src/Canvas.js
-import React, { useRef, useEffect, useState } from 'react';
-import { Stage, Layer, Transformer, Image as KonvaImage } from 'react-konva';
-import { Button } from './ui/button';
+import React, { useRef, useEffect, useState } from "react";
+import { Stage, Layer, Transformer, Image as KonvaImage } from "react-konva";
+import { Button } from "./ui/button";
 
 // Component for rendering and transforming an Image
 const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
@@ -12,7 +12,7 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
 	useEffect(() => {
 		const img = new window.Image();
 		img.src = imageObj.src;
-		img.crossOrigin = 'Anonymous'; // If necessary
+		img.crossOrigin = "Anonymous"; // If necessary
 		img.onload = () => {
 			setImage(img);
 		};
@@ -65,10 +65,10 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
 					ref={trRef}
 					rotateEnabled={true}
 					enabledAnchors={[
-						'top-left',
-						'top-right',
-						'bottom-left',
-						'bottom-right',
+						"top-left",
+						"top-right",
+						"bottom-left",
+						"bottom-right",
 					]}
 					boundBoxFunc={(oldBox, newBox) => {
 						if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) {
@@ -116,7 +116,7 @@ const ImageBar = ({ storedImages }) => {
 					key={imageObj.id}
 					draggable="true"
 					onDragStart={(e) => {
-						e.dataTransfer.setData('text/plain', imageObj.src);
+						e.dataTransfer.setData("text/plain", imageObj.src);
 					}}
 				/>
 			))}
@@ -150,9 +150,9 @@ const Canvas = () => {
 				height: window.innerHeight,
 			});
 		};
-		window.addEventListener('resize', resizeHandler);
+		window.addEventListener("resize", resizeHandler);
 		return () => {
-			window.removeEventListener('resize', resizeHandler);
+			window.removeEventListener("resize", resizeHandler);
 		};
 	}, []);
 
@@ -197,7 +197,7 @@ const Canvas = () => {
 	const handleDrop = (e) => {
 		e.preventDefault();
 		const file = e.dataTransfer.files[0];
-		if (file && file.type.startsWith('image/')) {
+		if (file && file.type.startsWith("image/")) {
 			const reader = new FileReader();
 			reader.onload = (evt) => {
 				const img = new window.Image();
@@ -205,7 +205,7 @@ const Canvas = () => {
 				img.onload = () => {
 					const newImage = {
 						id: `image-${Date.now()}`, // Use timestamp for unique ID
-						type: 'image',
+						type: "image",
 						x:
 							position.x +
 							dimensions.width / 2 / scale -
@@ -307,7 +307,7 @@ const Canvas = () => {
 		const reader = new FileReader();
 
 		reader.addEventListener(
-			'load',
+			"load",
 			() => {
 				const newImage = {
 					src: reader.result,
@@ -330,9 +330,9 @@ const Canvas = () => {
 		// Get the data URL of the stage
 		const dataURL = stage.toDataURL({ pixelRatio: 3 }); // Increase pixelRatio for higher resolution
 		// Create a link and trigger download
-		const link = document.createElement('a');
+		const link = document.createElement("a");
 		link.href = dataURL;
-		link.download = 'canvas.png';
+		link.download = "canvas.png";
 		document.body.appendChild(link);
 		link.click();
 		document.body.removeChild(link);
@@ -349,13 +349,13 @@ const Canvas = () => {
 		const json = JSON.stringify(canvasState);
 
 		// Create a Blob from the JSON
-		const blob = new Blob([json], { type: 'application/json' });
+		const blob = new Blob([json], { type: "application/json" });
 		const url = URL.createObjectURL(blob);
 
 		// Create a link and trigger download
-		const link = document.createElement('a');
+		const link = document.createElement("a");
 		link.href = url;
-		link.download = 'canvas.json';
+		link.download = "canvas.json";
 		document.body.appendChild(link);
 		link.click();
 		document.body.removeChild(link);
@@ -364,7 +364,7 @@ const Canvas = () => {
 
 	const handleImportFromJSON = (e) => {
 		const file = e.target.files[0];
-		if (file && file.type === 'application/json') {
+		if (file && file.type === "application/json") {
 			const reader = new FileReader();
 			reader.onload = () => {
 				const json = reader.result;
@@ -383,16 +383,16 @@ const Canvas = () => {
 						setPosition(canvasState.position);
 						setStoredImages(canvasState.storedImages);
 					} else {
-						throw new Error('Invalid canvas state');
+						throw new Error("Invalid canvas state");
 					}
 				} catch (error) {
-					console.error('Error parsing JSON:', error);
-					alert('Failed to load the canvas. Error: ' + error.message);
+					console.error("Error parsing JSON:", error);
+					alert("Failed to load the canvas. Error: " + error.message);
 				}
 			};
 			reader.readAsText(file);
 		} else {
-			alert('Please upload a valid JSON file.');
+			alert("Please upload a valid JSON file.");
 		}
 	};
 
@@ -403,18 +403,18 @@ const Canvas = () => {
 			onDragOver={(e) => e.preventDefault()}
 			tabIndex={0}
 			className={`w-full h-screen outline-none overflow-hidden ${
-				isPanning ? 'cursor-grabbing' : 'cursor-default'
+				isPanning ? "cursor-grabbing" : "cursor-default"
 			}`}
 		>
 			{/* Export and Import Controls */}
-			<div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>
-				<Button variant={'outline'} onClick={handleExportAsImage}>
+			<div style={{ position: "absolute", top: 10, left: 10, zIndex: 10 }}>
+				<Button variant={"outline"} onClick={handleExportAsImage}>
 					Export as Image
 				</Button>
 				<Button
-					variant={'outline'}
+					variant={"outline"}
 					onClick={handleExportAsJSON}
-					style={{ marginLeft: '10px' }}
+					style={{ marginLeft: "10px" }}
 				>
 					Export as JSON
 				</Button>
@@ -422,7 +422,7 @@ const Canvas = () => {
 					type="file"
 					accept="application/json"
 					onChange={handleImportFromJSON}
-					style={{ marginLeft: '10px' }}
+					style={{ marginLeft: "10px" }}
 				/>
 				<div>
 					Upload Images:
@@ -464,9 +464,9 @@ const Canvas = () => {
 							key={imageObj.id}
 							imageObj={imageObj}
 							isSelected={
-								imageObj.id === selectedId && selectedType === 'image'
+								imageObj.id === selectedId && selectedType === "image"
 							}
-							onSelect={() => handleSelect(imageObj.id, 'image')}
+							onSelect={() => handleSelect(imageObj.id, "image")}
 							onChange={handleChangeImage}
 						/>
 					))}
