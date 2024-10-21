@@ -160,7 +160,7 @@ const Canvas = () => {
 		}
 	};
 
-	//compares to previous images to find
+	//compares with previous images to find duplicates
 	const findDuplicateImage = (prevImages, newImage) => {
 		const exists = prevImages.some(
 			(prevImage) => prevImage.src === newImage.src,
