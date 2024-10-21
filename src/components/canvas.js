@@ -82,31 +82,8 @@ const ImageShape = ({ imageObj, isSelected, onSelect, onChange }) => {
 	);
 };
 
-//need to add ability for image to dragged and dropped on canvas
-//need to add ability to upload images
-
+// Bar to display stored images
 const ImageBar = ({ storedImages }) => {
-	//imageObj has id, isSelected, onSelect, handleChangeImage
-	//ImageShape requires
-	//but StoredImage, should just require the original image, but pretty small, where it show the original image,
-	//with draggable attributes and stuff.
-
-	/*
-  id: `image-${Date.now()}`, // Use timestamp for unique ID
-						type: 'image',
-						x:
-							position.x +
-							dimensions.width / 2 / scale -
-							(img.width > 200 ? 100 : img.width / 2),
-						y:
-							position.y +
-							dimensions.height / 2 / scale -
-							(img.height > 200 ? 100 : img.height / 2),
-						width: img.width > 200 ? 200 : img.width,
-						height: img.height > 200 ? 200 : img.height,
-						src: evt.target.result,
-  */
-
 	console.log(storedImages);
 	return (
 		<div className="flex flex-none h-20">
